@@ -42,11 +42,14 @@ signals:
     void coinsChanged(const QVector<QRectF> &coins);
     void coinFrameChanged(const QPixmap &frame);
     void powerupsChanged(const QVector<QRectF> &powerups);
+    void magnetPowerupsChanged(const QVector<QRectF> &powerups);
+    void magnetFrameChanged(const QPixmap &frame);
     void scoreChanged(int score);
     void obstaclesChanged(const QVector<Obstacle> &obstacles);
     void haqiEffectChanged(const QPixmap &frame, const QPointF &anchor,
                            bool visible);
     void bigHaqiEffectChanged(const QPixmap &frame, const QRectF &target,
+                              const QPointF &anchor, double angleDegrees,
                               bool visible);
     void atomicBreathEffectChanged(const QPixmap &frame, const QRectF &target,
                                    const QPointF &anchor, double angleDegrees,
@@ -66,6 +69,7 @@ private:
     void appendObstacle(double x);
     void appendRandomCoin(double x);
     void appendRandomPowerup(double x);
+    void appendRandomMagnetPowerup(double x);
     QRectF playerCollisionBounds() const;
     QRect visibleBounds(const QPixmap &frame) const;
     QPointF playerMouthPosition() const;
@@ -73,11 +77,14 @@ private:
     void loadBigHaqiFrames();
     void loadAtomicBreathFrames();
     void loadCoinFrames();
+    void loadMagnetFrames();
     void loadExplosionClips();
     void updateCoinAnimation();
+    void updateMagnetAnimation();
     void startHaqiEffect();
     void updateHaqiEffect();
     void applyHaqiAttack();
+    QRectF haqiTargetRect(const QPixmap &frame) const;
     void startBigHaqiEffect();
     void updateBigHaqiEffect();
     void applyBigHaqiAttack();
@@ -87,8 +94,13 @@ private:
     void updateBigHaqiPlayerMotion();
     void updatePowerups();
     QVector<QRectF> powerupBounds() const;
+    QVector<QRectF> magnetPowerupBounds() const;
+    void updateMagnetEffect();
     double currentSpeedMultiplier() const;
     QRectF bigHaqiTargetRect() const;
+    double bigHaqiAngleDegrees() const;
+    QPolygonF bigHaqiAttackPolygon(const QRectF &target,
+                                   double angleDegrees) const;
     QRectF atomicBreathTargetRect(const QPixmap &frame) const;
     double atomicBreathAngleDegrees() const;
     QPolygonF atomicBreathAttackPolygon(const QRectF &target,
@@ -117,6 +129,7 @@ private:
         int elapsedMs = 0;
     };
     QVector<Powerup> powerups;
+    QVector<Powerup> magnetPowerups;
     QVector<Obstacle> obstacles;
     QVector<QPixmap> carPixmaps;
     QVector<QPixmap> planePixmaps;
@@ -124,6 +137,7 @@ private:
     QVector<QPixmap> bigHaqiFrames;
     QVector<QPixmap> atomicBreathFrames;
     QVector<QPixmap> coinFrames;
+    QVector<QPixmap> magnetFrames;
     QHash<QString, QVector<QPixmap>> explosionClips;
     mutable QHash<qint64, QRect> playerVisibleBoundsCache;
 
@@ -146,14 +160,17 @@ private:
     int bigHaqiElapsedMs = 0;
     double bigHaqiFlightPeriodMs = 300.0;
     double bigHaqiFlightPhase = 0.0;
+    double bigHaqiEntryStartY = 0.0;
     bool atomicBreathActive = false;
     int atomicBreathFrameIndex = 0;
     int atomicBreathElapsedMs = 0;
-    int normalAttackCount = 0;
     bool playerFacingRight = true;
     int coinFrameIndex = 0;
     int coinFrameElapsedMs = 0;
+    int magnetFrameIndex = 0;
+    int magnetFrameElapsedMs = 0;
     bool dying = false;
+    int magnetEffectRemainingMs = 0;
 };
 
 #endif // GAMECONTROLLER_H

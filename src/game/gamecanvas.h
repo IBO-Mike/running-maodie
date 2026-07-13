@@ -26,10 +26,13 @@ public slots:
     void setCoins(const QVector<QRectF> &coins);
     void setCoinFrame(const QPixmap &frame);
     void setPowerups(const QVector<QRectF> &powerups);
+    void setMagnetPowerups(const QVector<QRectF> &powerups);
+    void setMagnetFrame(const QPixmap &frame);
     void setObstacles(const QVector<Obstacle> &obstacles);
     void setHaqiEffect(const QPixmap &frame, const QPointF &anchor,
                        bool visible);
     void setBigHaqiEffect(const QPixmap &frame, const QRectF &target,
+                          const QPointF &anchor, double angleDegrees,
                           bool visible);
     void setAtomicBreathEffect(const QPixmap &frame, const QRectF &target,
                                const QPointF &anchor, double angleDegrees,
@@ -55,8 +58,12 @@ private:
     QPixmap coinFrame;
     QVector<QRectF> coinBounds;
     QVector<QRectF> powerupBounds;
+    QVector<QRectF> magnetPowerupBounds;
+    QPixmap magnetFrame;
     QPixmap bigHaqiFrame;
     QRectF bigHaqiTarget;
+    QPointF bigHaqiAnchor;
+    double bigHaqiAngleDegrees = 0.0;
     bool bigHaqiVisible = false;
     QPixmap atomicBreathFrame;
     QRectF atomicBreathTarget;

@@ -36,6 +36,7 @@ GameController::GameController(QObject *parent)
     loadBigHaqiFrames();
     loadAtomicBreathFrames();
     loadCoinFrames();
+    loadMagnetFrames();
     loadExplosionClips();
     connect(frameTimer, &QTimer::timeout,
             this, &GameController::updateFrame);
@@ -58,10 +59,12 @@ void GameController::start()
     atomicBreathActive = false;
     atomicBreathFrameIndex = 0;
     atomicBreathElapsedMs = 0;
-    normalAttackCount = 0;
     playerFacingRight = true;
     coinFrameIndex = 0;
     coinFrameElapsedMs = 0;
+    magnetFrameIndex = 0;
+    magnetFrameElapsedMs = 0;
+    magnetEffectRemainingMs = 0;
     activeExplosions.clear();
     playerAnimator.update(
         0,
@@ -77,13 +80,17 @@ void GameController::start()
     emit playerFrameChanged(playerAnimator.currentFrame());
     if (!coinFrames.isEmpty())
         emit coinFrameChanged(coinFrames[coinFrameIndex]);
+    if (!magnetFrames.isEmpty())
+        emit magnetFrameChanged(magnetFrames[magnetFrameIndex]);
     emit haqiEffectChanged(QPixmap(), playerMouthPosition(), false);
-    emit bigHaqiEffectChanged(QPixmap(), QRectF(), false);
+    emit bigHaqiEffectChanged(QPixmap(), QRectF(), playerMouthPosition(),
+                              0.0, false);
     emit atomicBreathEffectChanged(QPixmap(), QRectF(), playerMouthPosition(),
                                    0.0, false);
     publishExplosionEffects();
     emit coinsChanged(coins);
     emit powerupsChanged(powerupBounds());
+    emit magnetPowerupsChanged(magnetPowerupBounds());
     publishWorldObjects();
     frameTimer->start();
 }
@@ -116,19 +123,9 @@ void GameController::attack()
     if (!frameTimer->isActive())
         return;
 
-    if (atomicBreathActive)
-        return;
-
     playerAnimator.requestAttack();
     emit playerFrameChanged(playerAnimator.currentFrame());
 
-    if (normalAttackCount >= GameConfig::AtomicBreathChargeAttackCount) {
-        normalAttackCount = 0;
-        startAtomicBreathEffect();
-        return;
-    }
-
-    ++normalAttackCount;
     startHaqiEffect();
 }
 
@@ -148,7 +145,8 @@ void GameController::updateFrame()
         }
         if (bigHaqiActive) {
             bigHaqiActive = false;
-            emit bigHaqiEffectChanged(QPixmap(), QRectF(), false);
+            emit bigHaqiEffectChanged(QPixmap(), QRectF(),
+                                      playerMouthPosition(), 0.0, false);
             emit screenEffectsChanged(QPointF(), 0.0);
         }
         if (atomicBreathActive) {
@@ -175,10 +173,14 @@ void GameController::updateFrame()
         coin.translate(-GameConfig::ObstacleSpeed * currentSpeedMultiplier(), 0);
     for (Powerup &powerup : powerups)
         powerup.bounds.translate(-GameConfig::ObstacleSpeed * currentSpeedMultiplier(), 0);
+    for (Powerup &powerup : magnetPowerups)
+        powerup.bounds.translate(-GameConfig::ObstacleSpeed * currentSpeedMultiplier(), 0);
     for (Obstacle &obstacle : obstacles)
         obstacle.moveByOwnSpeed(currentSpeedMultiplier());
     updatePowerups();
+    updateMagnetEffect();
     updateCoinAnimation();
+    updateMagnetAnimation();
 
     if (bigHaqiActive)
         updateBigHaqiPlayerMotion();
@@ -222,6 +224,7 @@ void GameController::resetCoins()
 {
     coins.clear();
     powerups.clear();
+    magnetPowerups.clear();
     obstacles.clear();
 
     double nextCoinX = 420;
@@ -247,6 +250,8 @@ void GameController::updateWorldObjects(double worldDistance)
     for (QRectF &coin : coins)
         coin.translate(-worldDistance, 0);
     for (Powerup &powerup : powerups)
+        powerup.bounds.translate(-worldDistance, 0);
+    for (Powerup &powerup : magnetPowerups)
         powerup.bounds.translate(-worldDistance, 0);
     for (Obstacle &obstacle : obstacles)
         obstacle.moveLeft(worldDistance);
@@ -283,6 +288,18 @@ void GameController::updateWorldObjects(double worldDistance)
         }
     }
 
+    for (qsizetype index = magnetPowerups.size() - 1; index >= 0; --index) {
+        if (collisionSystem->intersects(playerBounds,
+                                        magnetPowerups[index].bounds)) {
+            magnetPowerups.removeAt(index);
+            magnetEffectRemainingMs = GameConfig::MagnetEffectDurationMs;
+            emit magnetPowerupsChanged(magnetPowerupBounds());
+        } else if (magnetPowerups[index].bounds.right() < 0) {
+            magnetPowerups.removeAt(index);
+            emit magnetPowerupsChanged(magnetPowerupBounds());
+        }
+    }
+
     for (qsizetype index = obstacles.size() - 1; index >= 0; --index) {
         if (obstacles[index].isOutsideScreen())
             obstacles.removeAt(index);
@@ -311,6 +328,7 @@ void GameController::updateWorldObjects(double worldDistance)
     }
 
     emit powerupsChanged(powerupBounds());
+    emit magnetPowerupsChanged(magnetPowerupBounds());
     publishWorldObjects();
 }
 
@@ -418,6 +436,14 @@ void GameController::appendObstacle(double x)
                 GameConfig::BigHaqiPowerupMaxOffsetX + 1));
     }
 
+    if (QRandomGenerator::global()->bounded(100)
+        < GameConfig::MagnetPowerupChancePercent) {
+        appendRandomMagnetPowerup(
+            x + QRandomGenerator::global()->bounded(
+                GameConfig::MagnetPowerupMinOffsetX,
+                GameConfig::MagnetPowerupMaxOffsetX + 1));
+    }
+
     obstacles.append(groundObstacle);
 }
 
@@ -443,6 +469,18 @@ void GameController::appendRandomPowerup(double x)
         GameConfig::BigHaqiPowerupSize);
     powerups.append(powerup);
     emit powerupsChanged(powerupBounds());
+}
+
+void GameController::appendRandomMagnetPowerup(double x)
+{
+    Powerup powerup;
+    powerup.bounds = QRectF(
+        x,
+        GameConfig::GroundLineY - GameConfig::MagnetPowerupSize,
+        GameConfig::MagnetPowerupSize,
+        GameConfig::MagnetPowerupSize);
+    magnetPowerups.append(powerup);
+    emit magnetPowerupsChanged(magnetPowerupBounds());
 }
 
 QRectF GameController::playerCollisionBounds() const
@@ -571,6 +609,19 @@ void GameController::loadCoinFrames()
     }
 }
 
+void GameController::loadMagnetFrames()
+{
+    magnetFrames.clear();
+    magnetFrames.reserve(GameConfig::MagnetFrameCount);
+
+    for (int index = 1; index <= GameConfig::MagnetFrameCount; ++index) {
+        QPixmap frame(QStringLiteral(":/images/items/magnets/magnet_%1.png")
+                          .arg(index, 2, 10, QLatin1Char('0')));
+        if (!frame.isNull())
+            magnetFrames.append(frame);
+    }
+}
+
 void GameController::updateCoinAnimation()
 {
     if (coinFrames.isEmpty())
@@ -588,36 +639,57 @@ void GameController::updateCoinAnimation()
         emit coinFrameChanged(coinFrames[coinFrameIndex]);
 }
 
+void GameController::updateMagnetAnimation()
+{
+    if (magnetFrames.isEmpty())
+        return;
+
+    magnetFrameElapsedMs += GameConfig::FrameIntervalMs;
+    bool changed = false;
+    while (magnetFrameElapsedMs >= GameConfig::MagnetFrameDurationMs) {
+        magnetFrameElapsedMs -= GameConfig::MagnetFrameDurationMs;
+        magnetFrameIndex = (magnetFrameIndex + 1) % magnetFrames.size();
+        changed = true;
+    }
+
+    if (changed)
+        emit magnetFrameChanged(magnetFrames[magnetFrameIndex]);
+}
+
 void GameController::startBigHaqiEffect()
 {
-    if (bigHaqiFrames.isEmpty())
+    if (atomicBreathFrames.isEmpty())
         return;
 
     bigHaqiActive = true;
     bigHaqiFrameIndex = 0;
     bigHaqiFrameElapsedMs = 0;
     bigHaqiElapsedMs = 0;
+    bigHaqiEntryStartY = player.position().y();
     bigHaqiFlightPeriodMs = randomBetween(
         GameConfig::BigHaqiFlightMinPeriodMs,
         GameConfig::BigHaqiFlightMaxPeriodMs);
     bigHaqiFlightPhase = randomBetween(0.0, 2.0 * M_PI);
     updateBigHaqiPlayerMotion();
     emit bigHaqiEffectChanged(
-        bigHaqiFrames[bigHaqiFrameIndex],
+        orientedAtomicBreathFrame(atomicBreathFrames[bigHaqiFrameIndex]),
         bigHaqiTargetRect(),
+        playerMouthPosition(),
+        bigHaqiAngleDegrees(),
         true);
     applyBigHaqiAttack();
 }
 
 void GameController::updateBigHaqiEffect()
 {
-    if (!bigHaqiActive || bigHaqiFrames.isEmpty())
+    if (!bigHaqiActive || atomicBreathFrames.isEmpty())
         return;
 
     bigHaqiElapsedMs += GameConfig::FrameIntervalMs;
     if (bigHaqiElapsedMs >= GameConfig::BigHaqiDurationMs) {
         bigHaqiActive = false;
-        emit bigHaqiEffectChanged(QPixmap(), QRectF(), false);
+        emit bigHaqiEffectChanged(QPixmap(), QRectF(), playerMouthPosition(),
+                                  0.0, false);
         emit screenEffectsChanged(QPointF(), 0.0);
         return;
     }
@@ -625,12 +697,15 @@ void GameController::updateBigHaqiEffect()
     bigHaqiFrameElapsedMs += GameConfig::FrameIntervalMs;
     while (bigHaqiFrameElapsedMs >= GameConfig::BigHaqiFrameDurationMs) {
         bigHaqiFrameElapsedMs -= GameConfig::BigHaqiFrameDurationMs;
-        bigHaqiFrameIndex = (bigHaqiFrameIndex + 1) % bigHaqiFrames.size();
+        bigHaqiFrameIndex =
+            (bigHaqiFrameIndex + 1) % atomicBreathFrames.size();
     }
 
     emit bigHaqiEffectChanged(
-        bigHaqiFrames[bigHaqiFrameIndex],
+        orientedAtomicBreathFrame(atomicBreathFrames[bigHaqiFrameIndex]),
         bigHaqiTargetRect(),
+        playerMouthPosition(),
+        bigHaqiAngleDegrees(),
         true);
     const double shakeAngle =
         bigHaqiElapsedMs * 2.0 * M_PI / GameConfig::BigHaqiRedFlashPeriodMs;
@@ -650,12 +725,26 @@ void GameController::updateBigHaqiEffect()
 
 void GameController::updateBigHaqiPlayerMotion()
 {
+    const double hoverElapsedMs = qMax(
+        0,
+        bigHaqiElapsedMs - GameConfig::BigHaqiEntryTransitionMs);
     const double angle =
         bigHaqiFlightPhase
-        + bigHaqiElapsedMs * 2.0 * M_PI / bigHaqiFlightPeriodMs;
-    const double y = GameConfig::BigHaqiFlightCenterY
+        + hoverElapsedMs * 2.0 * M_PI / bigHaqiFlightPeriodMs;
+    const double hoverY = GameConfig::BigHaqiFlightCenterY
         + qSin(angle) * GameConfig::BigHaqiFlightAmplitude
         - GameConfig::PlayerHeight / 2.0;
+    double y = hoverY;
+    if (bigHaqiElapsedMs < GameConfig::BigHaqiEntryTransitionMs) {
+        const double progress = qBound(
+            0.0,
+            bigHaqiElapsedMs / double(GameConfig::BigHaqiEntryTransitionMs),
+            1.0);
+        const double easedProgress =
+            progress * progress * (3.0 - 2.0 * progress);
+        y = bigHaqiEntryStartY
+            + (hoverY - bigHaqiEntryStartY) * easedProgress;
+    }
     player.forceAirbornePosition(y);
 }
 
@@ -672,6 +761,19 @@ void GameController::updatePowerups()
 
     if (changed)
         emit powerupsChanged(powerupBounds());
+
+    bool magnetChanged = false;
+    for (qsizetype index = magnetPowerups.size() - 1; index >= 0; --index) {
+        magnetPowerups[index].elapsedMs += GameConfig::FrameIntervalMs;
+        if (magnetPowerups[index].elapsedMs
+            >= GameConfig::MagnetPowerupLifetimeMs) {
+            magnetPowerups.removeAt(index);
+            magnetChanged = true;
+        }
+    }
+
+    if (magnetChanged)
+        emit magnetPowerupsChanged(magnetPowerupBounds());
 }
 
 QVector<QRectF> GameController::powerupBounds() const
@@ -681,6 +783,54 @@ QVector<QRectF> GameController::powerupBounds() const
     for (const Powerup &powerup : powerups)
         bounds.append(powerup.bounds);
     return bounds;
+}
+
+QVector<QRectF> GameController::magnetPowerupBounds() const
+{
+    QVector<QRectF> bounds;
+    bounds.reserve(magnetPowerups.size());
+    for (const Powerup &powerup : magnetPowerups)
+        bounds.append(powerup.bounds);
+    return bounds;
+}
+
+void GameController::updateMagnetEffect()
+{
+    if (magnetEffectRemainingMs <= 0)
+        return;
+
+    magnetEffectRemainingMs = qMax(
+        0,
+        magnetEffectRemainingMs - GameConfig::FrameIntervalMs);
+
+    const QRectF playerBounds = playerCollisionBounds();
+    const QPointF target = playerBounds.center();
+    bool collected = false;
+    for (qsizetype index = coins.size() - 1; index >= 0; --index) {
+        if (coins[index].right() < 0
+            || coins[index].left() > GameConfig::WindowWidth) {
+            continue;
+        }
+
+        const QPointF center = coins[index].center();
+        const QPointF delta = target - center;
+        const double distance = qSqrt(
+            delta.x() * delta.x() + delta.y() * delta.y());
+        if (distance <= GameConfig::MagnetCoinAttractSpeed
+            || playerBounds.intersects(coins[index])) {
+            coins.removeAt(index);
+            scoreSystem->addPoints(1);
+            collected = true;
+            continue;
+        }
+
+        coins[index].translate(
+            delta.x() / distance * GameConfig::MagnetCoinAttractSpeed,
+            delta.y() / distance * GameConfig::MagnetCoinAttractSpeed);
+    }
+
+    if (collected)
+        emit coinsChanged(coins);
 }
 
 double GameController::currentSpeedMultiplier() const
@@ -694,9 +844,12 @@ void GameController::applyBigHaqiAttack()
         return;
 
     const QRectF attackArea = bigHaqiTargetRect();
+    QPainterPath attackPath;
+    attackPath.addPolygon(
+        bigHaqiAttackPolygon(attackArea, bigHaqiAngleDegrees()));
     bool removedObstacle = false;
     for (qsizetype index = obstacles.size() - 1; index >= 0; --index) {
-        if (!obstacles[index].collidesWith(attackArea))
+        if (!attackPath.intersects(obstacles[index].collisionBounds()))
             continue;
 
         const Obstacle destroyedObstacle = obstacles[index];
@@ -713,22 +866,38 @@ void GameController::applyBigHaqiAttack()
 QRectF GameController::bigHaqiTargetRect() const
 {
     const QPointF mouth = playerMouthPosition();
-    if (bigHaqiFrames.isEmpty())
+    if (atomicBreathFrames.isEmpty())
         return QRectF(mouth.x(), 0, GameConfig::WindowWidth - mouth.x(),
                       GameConfig::WindowHeight);
 
-    const QPixmap &frame = bigHaqiFrames[
-        qBound(0, bigHaqiFrameIndex, bigHaqiFrames.size() - 1)];
     const double targetWidth = GameConfig::WindowWidth - mouth.x();
-    const double scaledHeight = qMax(
-        GameConfig::BigHaqiMinVisualHeight,
-        frame.height() * (targetWidth / double(frame.width())));
+    const double targetHeight = GameConfig::BigHaqiMinVisualHeight;
 
     return QRectF(
         mouth.x(),
-        mouth.y() - scaledHeight / 2.0,
+        mouth.y() - targetHeight / 2.0,
         targetWidth,
-        scaledHeight);
+        targetHeight);
+}
+
+double GameController::bigHaqiAngleDegrees() const
+{
+    const double angle =
+        bigHaqiElapsedMs * 2.0 * M_PI
+        / GameConfig::BigHaqiBeamSwingPeriodMs;
+    return qSin(angle) * GameConfig::BigHaqiBeamSwingAngleDegrees;
+}
+
+QPolygonF GameController::bigHaqiAttackPolygon(
+    const QRectF &target,
+    double angleDegrees) const
+{
+    const QPointF anchor = playerMouthPosition();
+    QTransform transform;
+    transform.translate(anchor.x(), anchor.y());
+    transform.rotate(angleDegrees);
+    transform.translate(-anchor.x(), -anchor.y());
+    return transform.map(QPolygonF(target));
 }
 
 void GameController::startAtomicBreathEffect()
@@ -939,11 +1108,7 @@ void GameController::applyHaqiAttack()
         return;
 
     const QPointF mouth = playerMouthPosition();
-    const QRectF attackArea(
-        mouth.x(),
-        mouth.y() - GameConfig::HaqiAttackHeight / 2.0,
-        GameConfig::HaqiAttackRange,
-        GameConfig::HaqiAttackHeight);
+    const QRectF attackArea = haqiTargetRect(haqiFrames[haqiFrameIndex]);
 
     qsizetype nearestIndex = -1;
     double nearestDistance = std::numeric_limits<double>::max();
@@ -968,6 +1133,19 @@ void GameController::applyHaqiAttack()
         ++haqiHitCount;
         publishWorldObjects();
     }
+}
+
+QRectF GameController::haqiTargetRect(const QPixmap &frame) const
+{
+    const QPointF mouth = playerMouthPosition();
+    if (frame.isNull())
+        return QRectF();
+
+    return QRectF(
+        mouth.x(),
+        mouth.y() - frame.height() / 2.0,
+        frame.width(),
+        frame.height());
 }
 
 void GameController::loadExplosionClips()

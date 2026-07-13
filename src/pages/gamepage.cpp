@@ -117,6 +117,10 @@ GamePage::GamePage(QWidget *parent)
             gameCanvas, &GameCanvas::setCoinFrame);
     connect(gameController, &GameController::powerupsChanged,
             gameCanvas, &GameCanvas::setPowerups);
+    connect(gameController, &GameController::magnetPowerupsChanged,
+            gameCanvas, &GameCanvas::setMagnetPowerups);
+    connect(gameController, &GameController::magnetFrameChanged,
+            gameCanvas, &GameCanvas::setMagnetFrame);
     connect(gameController, &GameController::obstaclesChanged,
             gameCanvas, &GameCanvas::setObstacles);
     connect(gameController, &GameController::haqiEffectChanged,

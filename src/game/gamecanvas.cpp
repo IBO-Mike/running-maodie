@@ -19,11 +19,15 @@ void GameCanvas::reset(double initialBackgroundOffset)
     playerPosition = QPointF(GameConfig::PlayerX, GameConfig::GroundY);
     coinBounds.clear();
     powerupBounds.clear();
+    magnetPowerupBounds.clear();
+    magnetFrame = QPixmap();
     obstacles.clear();
     haqiVisible = false;
     haqiFrame = QPixmap();
     bigHaqiVisible = false;
     bigHaqiFrame = QPixmap();
+    bigHaqiAnchor = QPointF();
+    bigHaqiAngleDegrees = 0.0;
     atomicBreathVisible = false;
     atomicBreathFrame = QPixmap();
     atomicBreathAnchor = QPointF();
@@ -105,6 +109,18 @@ void GameCanvas::setPowerups(const QVector<QRectF> &powerups)
     update();
 }
 
+void GameCanvas::setMagnetPowerups(const QVector<QRectF> &powerups)
+{
+    magnetPowerupBounds = powerups;
+    update();
+}
+
+void GameCanvas::setMagnetFrame(const QPixmap &frame)
+{
+    magnetFrame = frame;
+    update();
+}
+
 void GameCanvas::setObstacles(const QVector<Obstacle> &newObstacles)
 {
     obstacles = newObstacles;
@@ -121,10 +137,14 @@ void GameCanvas::setHaqiEffect(const QPixmap &frame, const QPointF &anchor,
 }
 
 void GameCanvas::setBigHaqiEffect(const QPixmap &frame, const QRectF &target,
+                                  const QPointF &anchor,
+                                  double angleDegrees,
                                   bool visible)
 {
     bigHaqiFrame = frame;
     bigHaqiTarget = target;
+    bigHaqiAnchor = anchor;
+    bigHaqiAngleDegrees = angleDegrees;
     bigHaqiVisible = visible;
     update();
 }
@@ -232,6 +252,28 @@ void GameCanvas::paintEvent(QPaintEvent *)
         painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("哈"));
     }
 
+    painter.setFont(QFont(QStringLiteral("Sans Serif"), 10,
+                          QFont::DemiBold));
+    for (const QRectF &powerup : magnetPowerupBounds) {
+        if (!magnetFrame.isNull()) {
+            const double visualHeight = GameConfig::MagnetVisualHeight;
+            const double visualWidth =
+                magnetFrame.width() * (visualHeight / magnetFrame.height());
+            const QRectF target(
+                powerup.center().x() - visualWidth / 2.0,
+                powerup.center().y() - visualHeight / 2.0,
+                visualWidth,
+                visualHeight);
+            painter.drawPixmap(target, magnetFrame,
+                               QRectF(magnetFrame.rect()));
+        } else {
+            painter.setBrush(QColor("#1e88e5"));
+            painter.setPen(QPen(QColor("#0d47a1"), 3, Qt::SolidLine));
+            painter.drawRect(powerup);
+            painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("磁"));
+        }
+    }
+
     // 图片与物理坐标解耦：所有动作都锚定在碰撞箱脚底中心。
     const QRectF playerBox(
         GameConfig::PlayerX,
@@ -281,10 +323,15 @@ void GameCanvas::paintEvent(QPaintEvent *)
     }
 
     if (bigHaqiVisible && !bigHaqiFrame.isNull()) {
+        painter.save();
+        painter.translate(bigHaqiAnchor);
+        painter.rotate(bigHaqiAngleDegrees);
+        painter.translate(-bigHaqiAnchor);
         painter.drawPixmap(
             bigHaqiTarget,
             bigHaqiFrame,
             QRectF(bigHaqiFrame.rect()));
+        painter.restore();
     }
 
     if (atomicBreathVisible && !atomicBreathFrame.isNull()) {

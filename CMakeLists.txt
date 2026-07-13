@@ -58,6 +58,9 @@ file(GLOB_RECURSE EXPLODE_FRAME_FILES CONFIGURE_DEPENDS
 file(GLOB COIN_FRAME_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/items/coins/*.png"
 )
+file(GLOB MAGNET_FRAME_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/items/magnets/*.png"
+)
 file(GLOB BIGHAQI_FRAME_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/bighaqi_frames/*.png"
 )
@@ -88,6 +91,11 @@ qt_add_resources(running-maodie "coin_frames"
     PREFIX "/"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
     FILES ${COIN_FRAME_FILES}
+)
+qt_add_resources(running-maodie "magnet_frames"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES ${MAGNET_FRAME_FILES}
 )
 qt_add_resources(running-maodie "bighaqi_frames"
     PREFIX "/"

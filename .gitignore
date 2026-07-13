@@ -1,6 +1,7 @@
 # Build directories
 build/
 cmake-build-*/
+out/
 
 # CLion / IntelliJ
 .idea/
@@ -10,9 +11,12 @@ cmake-build-*/
 .qtcreator/
 *.user
 CMakeLists.txt.user
+*.user.*
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # CMake generated files
 CMakeCache.txt
@@ -20,8 +24,32 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 compile_commands.json
+CTestTestfile.cmake
+Testing/
+*_autogen/
+*.cmake
 
 # Compiled files
 *.o
 *.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
 *.app
+
+# Debug / runtime files
+*.dSYM/
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Local configuration
+src/config/gameconfig.local.h
+
+代码逐句解释.md
+角色动画状态机.md
+项目架构说明.md
