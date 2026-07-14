@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(running-maodie LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Multimedia)
 
 qt_standard_project_setup()
 set(CMAKE_AUTORCC ON)
@@ -39,6 +39,8 @@ qt_add_executable(running-maodie
     src/managers/audiomanager.h
     src/ui/hudwidget.cpp
     src/ui/hudwidget.h
+    src/ui/musicplayerwidget.cpp
+    src/ui/musicplayerwidget.h
     src/config/gameconfig.h
     resources/resources.qrc
 )
@@ -60,6 +62,9 @@ file(GLOB COIN_FRAME_FILES CONFIGURE_DEPENDS
 )
 file(GLOB MAGNET_FRAME_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/items/magnets/*.png"
+)
+file(GLOB HA_POWERUP_FRAME_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/items/ha_frames/*.png"
 )
 file(GLOB BIGHAQI_FRAME_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/bighaqi_frames/*.png"
@@ -97,6 +102,11 @@ qt_add_resources(running-maodie "magnet_frames"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
     FILES ${MAGNET_FRAME_FILES}
 )
+qt_add_resources(running-maodie "ha_powerup_frames"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES ${HA_POWERUP_FRAME_FILES}
+)
 qt_add_resources(running-maodie "bighaqi_frames"
     PREFIX "/"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
@@ -110,10 +120,16 @@ qt_add_resources(running-maodie "tuxi_frames"
 
 target_include_directories(running-maodie PRIVATE src)
 
+target_compile_definitions(running-maodie
+    PRIVATE
+        RUNNING_MAODIE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
 target_link_libraries(running-maodie
     PRIVATE
         Qt::Core
         Qt::Widgets
+        Qt::Multimedia
 )
 
 install(TARGETS running-maodie

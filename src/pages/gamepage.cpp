@@ -117,6 +117,8 @@ GamePage::GamePage(QWidget *parent)
             gameCanvas, &GameCanvas::setCoinFrame);
     connect(gameController, &GameController::powerupsChanged,
             gameCanvas, &GameCanvas::setPowerups);
+    connect(gameController, &GameController::powerupFrameChanged,
+            gameCanvas, &GameCanvas::setPowerupFrame);
     connect(gameController, &GameController::magnetPowerupsChanged,
             gameCanvas, &GameCanvas::setMagnetPowerups);
     connect(gameController, &GameController::magnetFrameChanged,
@@ -196,6 +198,25 @@ void GamePage::startGame(double initialBackgroundOffset)
     gameCanvas->reset(initialBackgroundOffset);
     gameController->start();
     setFocus();
+    emit gameStarted();
+}
+
+void GamePage::setExternalPaused(bool value)
+{
+    if (gameEnded)
+        return;
+
+    setPaused(value);
+}
+
+bool GamePage::isPaused() const
+{
+    return paused;
+}
+
+bool GamePage::isGameEnded() const
+{
+    return gameEnded;
 }
 
 void GamePage::keyPressEvent(QKeyEvent *event)

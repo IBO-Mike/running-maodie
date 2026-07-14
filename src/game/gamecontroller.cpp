@@ -36,6 +36,7 @@ GameController::GameController(QObject *parent)
     loadBigHaqiFrames();
     loadAtomicBreathFrames();
     loadCoinFrames();
+    loadPowerupFrames();
     loadMagnetFrames();
     loadExplosionClips();
     connect(frameTimer, &QTimer::timeout,
@@ -62,24 +63,28 @@ void GameController::start()
     playerFacingRight = true;
     coinFrameIndex = 0;
     coinFrameElapsedMs = 0;
+    powerupFrameIndex = 0;
+    powerupFrameElapsedMs = 0;
     magnetFrameIndex = 0;
     magnetFrameElapsedMs = 0;
     magnetEffectRemainingMs = 0;
     activeExplosions.clear();
+    dying = false;
+    scoreSystem->reset();
+    spawnSystem->reset();
     playerAnimator.update(
         0,
         true,
         0.0,
-        GameConfig::ObstacleSpeed,
+        GameConfig::ObstacleSpeed * currentSpeedMultiplier(),
         0.0);
-    dying = false;
-    scoreSystem->reset();
-    spawnSystem->reset();
     resetCoins();
     emit playerPositionChanged(player.position());
     emit playerFrameChanged(playerAnimator.currentFrame());
     if (!coinFrames.isEmpty())
         emit coinFrameChanged(coinFrames[coinFrameIndex]);
+    if (!powerupFrames.isEmpty())
+        emit powerupFrameChanged(powerupFrames[powerupFrameIndex]);
     if (!magnetFrames.isEmpty())
         emit magnetFrameChanged(magnetFrames[magnetFrameIndex]);
     emit haqiEffectChanged(QPixmap(), playerMouthPosition(), false);
@@ -180,6 +185,7 @@ void GameController::updateFrame()
     updatePowerups();
     updateMagnetEffect();
     updateCoinAnimation();
+    updatePowerupAnimation();
     updateMagnetAnimation();
 
     if (bigHaqiActive)
@@ -190,7 +196,7 @@ void GameController::updateFrame()
         GameConfig::FrameIntervalMs,
         player.isOnGround(),
         player.verticalSpeed(),
-        GameConfig::ObstacleSpeed,
+        GameConfig::ObstacleSpeed * currentSpeedMultiplier(),
         player.airborneHeight());
     emit playerFrameChanged(playerAnimator.currentFrame());
     updateHaqiEffect();
@@ -622,6 +628,21 @@ void GameController::loadMagnetFrames()
     }
 }
 
+void GameController::loadPowerupFrames()
+{
+    powerupFrames.clear();
+    powerupFrames.reserve(GameConfig::BigHaqiPowerupFrameCount);
+
+    for (int index = 1;
+         index <= GameConfig::BigHaqiPowerupFrameCount;
+         ++index) {
+        QPixmap frame(QStringLiteral(":/images/items/ha_frames/ha_%1.png")
+                          .arg(index, 2, 10, QLatin1Char('0')));
+        if (!frame.isNull())
+            powerupFrames.append(frame);
+    }
+}
+
 void GameController::updateCoinAnimation()
 {
     if (coinFrames.isEmpty())
@@ -637,6 +658,24 @@ void GameController::updateCoinAnimation()
 
     if (changed)
         emit coinFrameChanged(coinFrames[coinFrameIndex]);
+}
+
+void GameController::updatePowerupAnimation()
+{
+    if (powerupFrames.isEmpty())
+        return;
+
+    powerupFrameElapsedMs += GameConfig::FrameIntervalMs;
+    bool changed = false;
+    while (powerupFrameElapsedMs
+           >= GameConfig::BigHaqiPowerupFrameDurationMs) {
+        powerupFrameElapsedMs -= GameConfig::BigHaqiPowerupFrameDurationMs;
+        powerupFrameIndex = (powerupFrameIndex + 1) % powerupFrames.size();
+        changed = true;
+    }
+
+    if (changed)
+        emit powerupFrameChanged(powerupFrames[powerupFrameIndex]);
 }
 
 void GameController::updateMagnetAnimation()
@@ -752,6 +791,9 @@ void GameController::updatePowerups()
 {
     bool changed = false;
     for (qsizetype index = powerups.size() - 1; index >= 0; --index) {
+        if (powerups[index].bounds.left() > GameConfig::WindowWidth)
+            continue;
+
         powerups[index].elapsedMs += GameConfig::FrameIntervalMs;
         if (powerups[index].elapsedMs >= GameConfig::BigHaqiPowerupLifetimeMs) {
             powerups.removeAt(index);
@@ -764,6 +806,9 @@ void GameController::updatePowerups()
 
     bool magnetChanged = false;
     for (qsizetype index = magnetPowerups.size() - 1; index >= 0; --index) {
+        if (magnetPowerups[index].bounds.left() > GameConfig::WindowWidth)
+            continue;
+
         magnetPowerups[index].elapsedMs += GameConfig::FrameIntervalMs;
         if (magnetPowerups[index].elapsedMs
             >= GameConfig::MagnetPowerupLifetimeMs) {
@@ -835,7 +880,16 @@ void GameController::updateMagnetEffect()
 
 double GameController::currentSpeedMultiplier() const
 {
-    return bigHaqiActive ? GameConfig::BigHaqiSpeedMultiplier : 1.0;
+    const double scoreRatio = qBound(
+        0.0,
+        scoreSystem->score() / double(GameConfig::SpeedGrowthMaxScore),
+        1.0);
+    const double scoreSpeedMultiplier =
+        GameConfig::MinScoreSpeedMultiplier
+        + (GameConfig::MaxScoreSpeedMultiplier
+           - GameConfig::MinScoreSpeedMultiplier) * scoreRatio;
+    return scoreSpeedMultiplier
+        * (bigHaqiActive ? GameConfig::BigHaqiSpeedMultiplier : 1.0);
 }
 
 void GameController::applyBigHaqiAttack()

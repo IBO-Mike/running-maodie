@@ -26,6 +26,7 @@ public slots:
     void setCoins(const QVector<QRectF> &coins);
     void setCoinFrame(const QPixmap &frame);
     void setPowerups(const QVector<QRectF> &powerups);
+    void setPowerupFrame(const QPixmap &frame);
     void setMagnetPowerups(const QVector<QRectF> &powerups);
     void setMagnetFrame(const QPixmap &frame);
     void setObstacles(const QVector<Obstacle> &obstacles);
@@ -58,6 +59,7 @@ private:
     QPixmap coinFrame;
     QVector<QRectF> coinBounds;
     QVector<QRectF> powerupBounds;
+    QPixmap powerupFrame;
     QVector<QRectF> magnetPowerupBounds;
     QPixmap magnetFrame;
     QPixmap bigHaqiFrame;

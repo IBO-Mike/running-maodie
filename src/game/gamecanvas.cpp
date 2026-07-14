@@ -19,6 +19,7 @@ void GameCanvas::reset(double initialBackgroundOffset)
     playerPosition = QPointF(GameConfig::PlayerX, GameConfig::GroundY);
     coinBounds.clear();
     powerupBounds.clear();
+    powerupFrame = QPixmap();
     magnetPowerupBounds.clear();
     magnetFrame = QPixmap();
     obstacles.clear();
@@ -106,6 +107,12 @@ void GameCanvas::setCoinFrame(const QPixmap &frame)
 void GameCanvas::setPowerups(const QVector<QRectF> &powerups)
 {
     powerupBounds = powerups;
+    update();
+}
+
+void GameCanvas::setPowerupFrame(const QPixmap &frame)
+{
+    powerupFrame = frame;
     update();
 }
 
@@ -242,14 +249,26 @@ void GameCanvas::paintEvent(QPaintEvent *)
         }
     }
 
-    // 临时强化哈气道具占位：使用明显色块，后续可替换为正式道具贴图。
-    painter.setBrush(QColor("#e53935"));
-    painter.setPen(QPen(QColor("#8e0000"), 3, Qt::SolidLine));
     painter.setFont(QFont(QStringLiteral("Sans Serif"), 10,
                           QFont::DemiBold));
     for (const QRectF &powerup : powerupBounds) {
-        painter.drawRect(powerup);
-        painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("哈"));
+        if (!powerupFrame.isNull()) {
+            const double visualHeight = GameConfig::BigHaqiPowerupVisualHeight;
+            const double visualWidth =
+                powerupFrame.width() * (visualHeight / powerupFrame.height());
+            const QRectF target(
+                powerup.center().x() - visualWidth / 2.0,
+                powerup.center().y() - visualHeight / 2.0,
+                visualWidth,
+                visualHeight);
+            painter.drawPixmap(target, powerupFrame,
+                               QRectF(powerupFrame.rect()));
+        } else {
+            painter.setBrush(QColor("#e53935"));
+            painter.setPen(QPen(QColor("#8e0000"), 3, Qt::SolidLine));
+            painter.drawRect(powerup);
+            painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("哈"));
+        }
     }
 
     painter.setFont(QFont(QStringLiteral("Sans Serif"), 10,

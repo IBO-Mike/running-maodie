@@ -17,9 +17,13 @@ class GamePage : public QWidget
 public:
     explicit GamePage(QWidget *parent = nullptr);
     void startGame(double initialBackgroundOffset = 0.0);
+    void setExternalPaused(bool paused);
+    bool isPaused() const;
+    bool isGameEnded() const;
 
 signals:
     void backToHomeRequested();
+    void gameStarted();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

@@ -42,6 +42,7 @@ signals:
     void coinsChanged(const QVector<QRectF> &coins);
     void coinFrameChanged(const QPixmap &frame);
     void powerupsChanged(const QVector<QRectF> &powerups);
+    void powerupFrameChanged(const QPixmap &frame);
     void magnetPowerupsChanged(const QVector<QRectF> &powerups);
     void magnetFrameChanged(const QPixmap &frame);
     void scoreChanged(int score);
@@ -77,9 +78,11 @@ private:
     void loadBigHaqiFrames();
     void loadAtomicBreathFrames();
     void loadCoinFrames();
+    void loadPowerupFrames();
     void loadMagnetFrames();
     void loadExplosionClips();
     void updateCoinAnimation();
+    void updatePowerupAnimation();
     void updateMagnetAnimation();
     void startHaqiEffect();
     void updateHaqiEffect();
@@ -137,6 +140,7 @@ private:
     QVector<QPixmap> bigHaqiFrames;
     QVector<QPixmap> atomicBreathFrames;
     QVector<QPixmap> coinFrames;
+    QVector<QPixmap> powerupFrames;
     QVector<QPixmap> magnetFrames;
     QHash<QString, QVector<QPixmap>> explosionClips;
     mutable QHash<qint64, QRect> playerVisibleBoundsCache;
@@ -167,6 +171,8 @@ private:
     bool playerFacingRight = true;
     int coinFrameIndex = 0;
     int coinFrameElapsedMs = 0;
+    int powerupFrameIndex = 0;
+    int powerupFrameElapsedMs = 0;
     int magnetFrameIndex = 0;
     int magnetFrameElapsedMs = 0;
     bool dying = false;
