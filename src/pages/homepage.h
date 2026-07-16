@@ -52,19 +52,20 @@ private:
     void drawBackground(QPainter &painter);
     void drawCat(QPainter &painter);
     void positionControls();
+    void updateTitlePixmap();
     void updateHighScoreLabel();
 
     QPixmap background;
+    QPixmap titlePixmap;
     QVector<QPixmap> sitFrames;
     QVector<QPixmap> sleepFrames;
     QVector<QPixmap> fallFrames;
     QVector<QPixmap> runFrames;
     QHash<qint64, QRect> alphaBoundsCache;
 
-    QWidget *logoSpace;
+    QLabel *titleLabel;
     QLabel *highScoreLabel;
     QPushButton *startButton;
-    QPushButton *settingsButton;
     QTimer *timer;
 
     HomeState state = HomeState::Sit;

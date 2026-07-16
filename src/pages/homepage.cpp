@@ -12,13 +12,20 @@
 
 namespace {
 constexpr int CatSleepDelayMs = 6000;
-constexpr int LogoSpaceWidth = 430;
-constexpr int LogoSpaceHeight = 120;
+constexpr int TitleTopY = 42;
+constexpr int TitleMaxWidth = 400;
+constexpr int TitleMaxHeight = 154;
+constexpr int TitleHorizontalMargin = 80;
+constexpr int TitlePlayerGap = 16;
+constexpr int HomeMusicPlayerWidth = 310;
+constexpr int HomeMusicPlayerHeight = 132;
+constexpr int HomeMusicPlayerTop = 18;
+constexpr int HomeMusicPlayerRight = 18;
 constexpr int HighScoreLabelWidth = 260;
 constexpr int HighScoreLabelHeight = 38;
 constexpr int HomeButtonWidth = 220;
 constexpr int HomeButtonHeight = 56;
-constexpr int HomeStartButtonY = 390;
+constexpr int HomeStartButtonY = 476;
 constexpr int CatSeatOffsetFromStartButtonTop = 0;
 constexpr double HomeEntrySpeed = 14.0;
 }
@@ -26,14 +33,14 @@ constexpr double HomeEntrySpeed = 14.0;
 HomePage::HomePage(QWidget *parent)
     : QWidget(parent)
     , background(QStringLiteral(":/images/backgrounds/background.png"))
+    , titlePixmap(QStringLiteral(":/images/ui/title_cutout.png"))
     , sitFrames(loadFrames(QStringLiteral("sit"), 3))
     , sleepFrames(loadFrames(QStringLiteral("sleep"), 4))
     , fallFrames(loadFrames(QStringLiteral("fall"), 4))
     , runFrames(loadFrames(QStringLiteral("run"), 7))
-    , logoSpace(new QWidget(this))
+    , titleLabel(new QLabel(this))
     , highScoreLabel(new QLabel(this))
     , startButton(new QPushButton(QStringLiteral("开始游戏"), this))
-    , settingsButton(new QPushButton(QStringLiteral("设置"), this))
     , timer(new QTimer(this))
 {
     setObjectName(QStringLiteral("homePage"));
@@ -50,11 +57,7 @@ HomePage::HomePage(QWidget *parent)
         }
         QPushButton:hover { background-color: #f29d79; }
         QPushButton:pressed { background-color: #da7049; }
-        QPushButton#settingsButton {
-            color: #455a64;
-            background-color: rgba(255, 255, 255, 215);
-            border: 2px solid rgba(84, 139, 137, 190);
-        }
+        QLabel#titleLabel { background: transparent; }
         QLabel#highScoreLabel {
             color: #fff3e0;
             background-color: rgba(25, 35, 40, 125);
@@ -64,13 +67,11 @@ HomePage::HomePage(QWidget *parent)
         }
     )");
 
-    // 此区域刻意保持透明，后续直接放置 Logo 图片。
-    logoSpace->setObjectName(QStringLiteral("logoSpace"));
-    logoSpace->setAttribute(Qt::WA_TransparentForMouseEvents);
+    titleLabel->setObjectName(QStringLiteral("titleLabel"));
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
     highScoreLabel->setObjectName(QStringLiteral("highScoreLabel"));
     highScoreLabel->setAlignment(Qt::AlignCenter);
-    settingsButton->setObjectName(QStringLiteral("settingsButton"));
-    settingsButton->setToolTip(QStringLiteral("设置功能将在后续版本中加入"));
 
     connect(startButton, &QPushButton::clicked,
             this, &HomePage::beginGameTransition);
@@ -89,13 +90,11 @@ void HomePage::resetHome()
     inactiveElapsedMs = 0;
     fallVelocity = 0.0;
     homeGroupOffsetX = 0.0;
-    logoSpace->show();
+    titleLabel->show();
     highScoreLabel->show();
     updateHighScoreLabel();
     startButton->show();
-    settingsButton->show();
     startButton->setEnabled(false);
-    settingsButton->setEnabled(false);
     positionControls();
     const int centeredButtonX = (width() - HomeButtonWidth) / 2;
     homeGroupOffsetX = -centeredButtonX - HomeButtonWidth - 40;
@@ -154,7 +153,6 @@ void HomePage::updateFrame()
             frameElapsedMs = 0;
             inactiveElapsedMs = 0;
             startButton->setEnabled(true);
-            settingsButton->setEnabled(true);
         }
         positionControls();
         advanceAnimation(180, false);
@@ -216,7 +214,6 @@ void HomePage::beginGameTransition()
     }
 
     startButton->hide();
-    settingsButton->hide();
     state = HomeState::Falling;
     frameIndex = 0;
     frameElapsedMs = 0;
@@ -349,24 +346,22 @@ void HomePage::drawCat(QPainter &painter)
 
 void HomePage::positionControls()
 {
-    logoSpace->setGeometry(
-        (width() - LogoSpaceWidth) / 2,
-        24,
-        LogoSpaceWidth,
-        LogoSpaceHeight);
+    updateTitlePixmap();
+
+    const int highScoreY = titleLabel->geometry().bottom() + 14;
     highScoreLabel->setGeometry(
         (width() - HighScoreLabelWidth) / 2,
-        154,
+        highScoreY,
         HighScoreLabelWidth,
         HighScoreLabelHeight);
 
     const int buttonX =
         (width() - HomeButtonWidth) / 2 + int(homeGroupOffsetX);
-    const int startY = HomeStartButtonY;
+    const int startY = qMin(
+        qMax(HomeStartButtonY, highScoreY + HighScoreLabelHeight + 96),
+        qMax(0, height() - HomeButtonHeight - 24));
     startButton->setGeometry(
         buttonX, startY, HomeButtonWidth, HomeButtonHeight);
-    settingsButton->setGeometry(
-        buttonX, startY + 72, HomeButtonWidth, HomeButtonHeight);
 
     if (state == HomeState::Entering
         || state == HomeState::Sit
@@ -375,6 +370,57 @@ void HomePage::positionControls()
             buttonX + HomeButtonWidth / 2.0,
             startY + CatSeatOffsetFromStartButtonTop);
     }
+}
+
+void HomePage::updateTitlePixmap()
+{
+    const int availableTitleAreaWidth =
+        qMax(260, width() - TitleHorizontalMargin * 2);
+    if (titlePixmap.isNull()) {
+        const int fallbackWidth = qMin(TitleMaxWidth, availableTitleAreaWidth);
+        QRect titleRect((width() - fallbackWidth) / 2,
+                        TitleTopY,
+                        fallbackWidth,
+                        TitleMaxHeight);
+        const QRect playerSafeRect(
+            width() - HomeMusicPlayerWidth - HomeMusicPlayerRight
+                - TitlePlayerGap,
+            HomeMusicPlayerTop,
+            HomeMusicPlayerWidth + TitlePlayerGap,
+            HomeMusicPlayerHeight + TitlePlayerGap);
+        if (titleRect.intersects(playerSafeRect))
+            titleRect.moveTop(playerSafeRect.bottom() + TitlePlayerGap);
+        titleLabel->setGeometry(titleRect);
+        titleLabel->setText(QStringLiteral("Running Maodie"));
+        return;
+    }
+
+    int titleWidth = qMin(TitleMaxWidth, availableTitleAreaWidth - 48);
+    titleWidth = qMax(260, titleWidth);
+    int titleHeight = int(titleWidth * titlePixmap.height()
+                          / double(titlePixmap.width()));
+    if (titleHeight > TitleMaxHeight) {
+        titleHeight = TitleMaxHeight;
+        titleWidth = int(titleHeight * titlePixmap.width()
+                         / double(titlePixmap.height()));
+    }
+
+    QRect titleRect((width() - titleWidth) / 2,
+                    TitleTopY,
+                    titleWidth,
+                    titleHeight);
+    const QRect playerSafeRect(
+        width() - HomeMusicPlayerWidth - HomeMusicPlayerRight - TitlePlayerGap,
+        HomeMusicPlayerTop,
+        HomeMusicPlayerWidth + TitlePlayerGap,
+        HomeMusicPlayerHeight + TitlePlayerGap);
+    if (titleRect.intersects(playerSafeRect))
+        titleRect.moveTop(playerSafeRect.bottom() + TitlePlayerGap);
+
+    titleLabel->setGeometry(titleRect);
+    titleLabel->setPixmap(titlePixmap.scaled(titleLabel->size(),
+                                             Qt::KeepAspectRatio,
+                                             Qt::SmoothTransformation));
 }
 
 void HomePage::updateHighScoreLabel()

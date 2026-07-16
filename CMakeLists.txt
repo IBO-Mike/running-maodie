@@ -72,6 +72,9 @@ file(GLOB BIGHAQI_FRAME_FILES CONFIGURE_DEPENDS
 file(GLOB TUXI_FRAME_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/tuxi_frames/*.png"
 )
+file(GLOB UI_IMAGE_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/images/ui/*.png"
+)
 qt_add_resources(running-maodie "player_frames"
     PREFIX "/"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
@@ -116,6 +119,11 @@ qt_add_resources(running-maodie "tuxi_frames"
     PREFIX "/"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
     FILES ${TUXI_FRAME_FILES}
+)
+qt_add_resources(running-maodie "ui_images"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES ${UI_IMAGE_FILES}
 )
 
 target_include_directories(running-maodie PRIVATE src)

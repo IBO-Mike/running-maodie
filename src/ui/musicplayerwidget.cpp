@@ -17,10 +17,10 @@
 #include <QVBoxLayout>
 
 namespace {
-constexpr int MiniPlayerWidth = 360;
-constexpr int MiniPlayerHeight = 158;
-constexpr int HandleWidth = 46;
-constexpr int PlaylistPanelWidth = 390;
+constexpr int MiniPlayerWidth = 310;
+constexpr int MiniPlayerHeight = 132;
+constexpr int HandleWidth = 40;
+constexpr int PlaylistPanelWidth = MiniPlayerWidth;
 
 QStringList supportedAudioFilters()
 {
@@ -45,11 +45,12 @@ MusicPlayerWidget::MusicPlayerWidget(QWidget *parent)
     , volumeLabel(new QLabel(QStringLiteral("音量"), this))
     , progressSlider(new QSlider(Qt::Horizontal, this))
     , volumeSlider(new QSlider(Qt::Horizontal, this))
-    , previousButton(new QPushButton(QStringLiteral("上一首"), this))
-    , playPauseButton(new QPushButton(QStringLiteral("播放"), this))
-    , nextButton(new QPushButton(QStringLiteral("下一首"), this))
-    , shuffleButton(new QPushButton(QStringLiteral("顺序"), this))
-    , playlistButton(new QPushButton(QStringLiteral("列表"), this))
+    , previousButton(new QPushButton(this))
+    , playPauseButton(new QPushButton(this))
+    , nextButton(new QPushButton(this))
+    , shuffleButton(new QPushButton(QStringLiteral("🔀"), this))
+    , loopButton(new QPushButton(QStringLiteral("↻"), this))
+    , playlistButton(new QPushButton(QStringLiteral("☰"), this))
     , handleButton(new QPushButton(QStringLiteral("♫"), this))
     , playlistPanel(new QWidget(parent))
     , playlistWidget(new QListWidget(playlistPanel))
@@ -58,6 +59,7 @@ MusicPlayerWidget::MusicPlayerWidget(QWidget *parent)
     , miniPlayerAnimation(new QPropertyAnimation(this, "geometry", this))
 {
     setObjectName(QStringLiteral("musicMiniPlayer"));
+    setAttribute(Qt::WA_StyledBackground, true);
     setFixedSize(MiniPlayerWidth, MiniPlayerHeight);
     setFocusPolicy(Qt::NoFocus);
 
@@ -99,7 +101,7 @@ MusicPlayerWidget::MusicPlayerWidget(QWidget *parent)
     connect(player, &QMediaPlayer::mediaStatusChanged,
             this, [this](QMediaPlayer::MediaStatus status) {
                 if (status == QMediaPlayer::EndOfMedia)
-                    playAdjacent(1);
+                    handlePlaybackEnded();
             });
 
     connect(progressSlider, &QSlider::sliderPressed,
@@ -142,6 +144,8 @@ MusicPlayerWidget::MusicPlayerWidget(QWidget *parent)
         shuffleEnabled = !shuffleEnabled;
         updatePlaybackButtons();
     });
+    connect(loopButton, &QPushButton::clicked,
+            this, &MusicPlayerWidget::cycleLoopMode);
     connect(playlistButton, &QPushButton::clicked,
             this, [this] { setPlaylistOpen(!playlistOpen); });
     connect(handleButton, &QPushButton::clicked, this, [this] {
@@ -175,19 +179,26 @@ void MusicPlayerWidget::setGameMode(bool enabled)
 {
     if (gameMode == enabled) {
         if (gameMode)
-            setPlaylistOpen(false);
+            collapseForGameplay(true);
         return;
     }
 
     gameMode = enabled;
     if (gameMode) {
-        setPlaylistOpen(false);
-        setCollapsedToHandle(!gameModeWasExpanded, true);
+        collapseForGameplay(true);
     } else {
-        gameModeWasExpanded = !collapsedToHandle;
         setPlaylistOpen(false);
         setCollapsedToHandle(false, false);
     }
+}
+
+void MusicPlayerWidget::collapseForGameplay(bool animate)
+{
+    if (!gameMode)
+        gameMode = true;
+
+    setPlaylistOpen(false);
+    setCollapsedToHandle(true, animate);
 }
 
 bool MusicPlayerWidget::isCollapsedToHandle() const
@@ -221,7 +232,7 @@ void MusicPlayerWidget::buildMiniPlayer()
 {
     setStyleSheet(R"(
         QWidget#musicMiniPlayer {
-            background-color: rgba(25, 35, 40, 232);
+            background-color: #192328;
             border: 2px solid rgba(255, 243, 224, 115);
             border-radius: 16px;
         }
@@ -236,8 +247,8 @@ void MusicPlayerWidget::buildMiniPlayer()
             border-radius: 10px;
             color: white;
             background-color: rgba(239, 139, 97, 220);
-            padding: 5px 7px;
-            font-size: 12px;
+            padding: 4px 6px;
+            font-size: 11px;
             font-weight: 700;
         }
         QWidget#musicMiniPlayer QPushButton:hover {
@@ -255,7 +266,7 @@ void MusicPlayerWidget::buildMiniPlayer()
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
             background-color: rgba(239, 139, 97, 235);
-            font-size: 20px;
+            font-size: 18px;
         }
         QWidget#musicMiniPlayer QSlider::groove:horizontal {
             height: 5px;
@@ -275,7 +286,7 @@ void MusicPlayerWidget::buildMiniPlayer()
     )");
 
     songNameLabel->setText(QStringLiteral("暂无歌曲"));
-    songNameLabel->setFont(QFont(QStringLiteral("Sans Serif"), 13,
+    songNameLabel->setFont(QFont(QStringLiteral("Sans Serif"), 12,
                                  QFont::DemiBold));
     artistNameLabel->setText(QStringLiteral("请将音乐放入 resources/audio/bgm"));
     artistNameLabel->setStyleSheet(QStringLiteral("color: #fff3e0;"));
@@ -287,16 +298,31 @@ void MusicPlayerWidget::buildMiniPlayer()
     progressSlider->setRange(0, 0);
     volumeSlider->setRange(0, 100);
     volumeSlider->setValue(45);
+    progressSlider->setToolTip(QStringLiteral("拖动调整播放进度"));
+    volumeSlider->setToolTip(QStringLiteral("拖动调整音量"));
     progressSlider->setFocusPolicy(Qt::NoFocus);
     volumeSlider->setFocusPolicy(Qt::NoFocus);
     handleButton->setObjectName(QStringLiteral("playerHandleButton"));
+    handleButton->setToolTip(QStringLiteral("展开播放器和播放列表"));
     handleButton->setFocusPolicy(Qt::NoFocus);
     previousButton->setFocusPolicy(Qt::NoFocus);
     playPauseButton->setFocusPolicy(Qt::NoFocus);
     nextButton->setFocusPolicy(Qt::NoFocus);
     shuffleButton->setFocusPolicy(Qt::NoFocus);
+    loopButton->setFocusPolicy(Qt::NoFocus);
     playlistButton->setFocusPolicy(Qt::NoFocus);
     shuffleButton->setCheckable(true);
+    previousButton->setIcon(style()->standardIcon(QStyle::SP_MediaSkipBackward));
+    nextButton->setIcon(style()->standardIcon(QStyle::SP_MediaSkipForward));
+    const QSize iconSize(16, 16);
+    previousButton->setIconSize(iconSize);
+    playPauseButton->setIconSize(iconSize);
+    nextButton->setIconSize(iconSize);
+    shuffleButton->setToolTip(QStringLiteral("随机播放：关闭"));
+    loopButton->setToolTip(QStringLiteral("循环模式：列表循环"));
+    playlistButton->setToolTip(QStringLiteral("显示或隐藏播放列表"));
+    previousButton->setToolTip(QStringLiteral("上一首"));
+    nextButton->setToolTip(QStringLiteral("下一首"));
 
     auto *titleRow = new QHBoxLayout;
     titleRow->setContentsMargins(0, 0, 0, 0);
@@ -305,22 +331,23 @@ void MusicPlayerWidget::buildMiniPlayer()
 
     auto *buttonRow = new QHBoxLayout;
     buttonRow->setContentsMargins(0, 0, 0, 0);
-    buttonRow->setSpacing(6);
+    buttonRow->setSpacing(5);
     buttonRow->addWidget(previousButton);
     buttonRow->addWidget(playPauseButton);
     buttonRow->addWidget(nextButton);
     buttonRow->addWidget(shuffleButton);
+    buttonRow->addWidget(loopButton);
     buttonRow->addWidget(playlistButton);
 
     auto *volumeRow = new QHBoxLayout;
     volumeRow->setContentsMargins(0, 0, 0, 0);
-    volumeRow->setSpacing(8);
+    volumeRow->setSpacing(6);
     volumeRow->addWidget(volumeLabel);
     volumeRow->addWidget(volumeSlider, 1);
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 9, 12, 10);
-    layout->setSpacing(5);
+    layout->setContentsMargins(10, 7, 10, 8);
+    layout->setSpacing(4);
     layout->addLayout(titleRow);
     layout->addWidget(artistNameLabel);
     layout->addWidget(progressSlider);
@@ -334,10 +361,11 @@ void MusicPlayerWidget::buildMiniPlayer()
 void MusicPlayerWidget::buildPlaylistPanel()
 {
     playlistPanel->setObjectName(QStringLiteral("musicPlaylistPanel"));
+    playlistPanel->setAttribute(Qt::WA_StyledBackground, true);
     playlistPanel->setFocusPolicy(Qt::NoFocus);
     playlistPanel->setStyleSheet(R"(
         QWidget#musicPlaylistPanel {
-            background-color: rgba(25, 35, 40, 232);
+            background-color: #192328;
             border-left: 2px solid rgba(255, 243, 224, 115);
         }
         QWidget#musicPlaylistPanel QLabel {
@@ -495,6 +523,46 @@ void MusicPlayerWidget::playAdjacent(int offset)
     playRow(nextRow);
 }
 
+void MusicPlayerWidget::handlePlaybackEnded()
+{
+    if (songs.isEmpty())
+        return;
+
+    if (loopMode == LoopMode::SingleLoop) {
+        player->setPosition(0);
+        player->play();
+        return;
+    }
+
+    const int row = currentVisualRow();
+    if (loopMode == LoopMode::NoLoop) {
+        if (row >= 0 && row + 1 < playlistWidget->count()) {
+            playRow(row + 1);
+        } else {
+            player->stop();
+        }
+        return;
+    }
+
+    playAdjacent(1);
+}
+
+void MusicPlayerWidget::cycleLoopMode()
+{
+    switch (loopMode) {
+    case LoopMode::NoLoop:
+        loopMode = LoopMode::SingleLoop;
+        break;
+    case LoopMode::SingleLoop:
+        loopMode = LoopMode::ListLoop;
+        break;
+    case LoopMode::ListLoop:
+        loopMode = LoopMode::NoLoop;
+        break;
+    }
+    updatePlaybackButtons();
+}
+
 void MusicPlayerWidget::setPlaylistOpen(bool open)
 {
     if (playlistOpen == open)
@@ -502,8 +570,6 @@ void MusicPlayerWidget::setPlaylistOpen(bool open)
 
     playlistOpen = open;
     playlistButton->setChecked(open);
-    if (gameMode && open)
-        gameModeWasExpanded = true;
 
     const int parentWidth = parentWidget() ? parentWidget()->width() : width();
     const int panelTop = y() + height();
@@ -532,8 +598,6 @@ void MusicPlayerWidget::setPlaylistOpen(bool open)
 
 void MusicPlayerWidget::setCollapsedToHandle(bool collapsed, bool animate)
 {
-    if (gameMode && collapsed)
-        gameModeWasExpanded = false;
     collapsedToHandle = collapsed;
     updateCollapsedUi();
 
@@ -559,6 +623,9 @@ void MusicPlayerWidget::updateCollapsedUi()
     handleButton->setText(collapsedToHandle
                               ? QStringLiteral("♫")
                               : QStringLiteral("›"));
+    handleButton->setToolTip(collapsedToHandle
+                                 ? QStringLiteral("展开播放器和播放列表")
+                                 : QStringLiteral("收起播放器和播放列表"));
     const QList<QWidget *> contentWidgets = {
         songNameLabel,
         artistNameLabel,
@@ -570,6 +637,7 @@ void MusicPlayerWidget::updateCollapsedUi()
         playPauseButton,
         nextButton,
         shuffleButton,
+        loopButton,
         playlistButton
     };
     for (QWidget *widget : contentWidgets)
@@ -611,16 +679,34 @@ void MusicPlayerWidget::updatePlaybackButtons()
     playPauseButton->setEnabled(hasSongs);
     nextButton->setEnabled(hasSongs);
     shuffleButton->setEnabled(hasSongs);
+    loopButton->setEnabled(hasSongs);
 
     const bool playing =
         player->playbackState() == QMediaPlayer::PlayingState;
-    playPauseButton->setText(playing
-                                 ? QStringLiteral("暂停")
-                                 : QStringLiteral("播放"));
+    playPauseButton->setIcon(style()->standardIcon(
+        playing ? QStyle::SP_MediaPause : QStyle::SP_MediaPlay));
+    playPauseButton->setToolTip(playing
+                                    ? QStringLiteral("暂停")
+                                    : QStringLiteral("播放"));
     shuffleButton->setChecked(shuffleEnabled);
-    shuffleButton->setText(shuffleEnabled
-                               ? QStringLiteral("随机")
-                               : QStringLiteral("顺序"));
+    shuffleButton->setToolTip(shuffleEnabled
+                                  ? QStringLiteral("随机播放：开启")
+                                  : QStringLiteral("随机播放：关闭"));
+
+    switch (loopMode) {
+    case LoopMode::NoLoop:
+        loopButton->setText(QStringLiteral("↦"));
+        loopButton->setToolTip(QStringLiteral("循环模式：不循环"));
+        break;
+    case LoopMode::SingleLoop:
+        loopButton->setText(QStringLiteral("🔂"));
+        loopButton->setToolTip(QStringLiteral("循环模式：单曲循环"));
+        break;
+    case LoopMode::ListLoop:
+        loopButton->setText(QStringLiteral("🔁"));
+        loopButton->setToolTip(QStringLiteral("循环模式：列表循环"));
+        break;
+    }
 }
 
 int MusicPlayerWidget::currentVisualRow() const
@@ -643,12 +729,16 @@ int MusicPlayerWidget::rowForSong(int songIndex) const
 
 QString MusicPlayerWidget::bgmDirectoryPath() const
 {
+    const QString appBgmPath = QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("resources/audio/bgm"));
+    if (QDir(appBgmPath).exists())
+        return appBgmPath;
+
 #ifdef RUNNING_MAODIE_SOURCE_DIR
     return QDir(QString::fromUtf8(RUNNING_MAODIE_SOURCE_DIR))
         .filePath(QStringLiteral("resources/audio/bgm"));
 #else
-    return QDir(QCoreApplication::applicationDirPath())
-        .filePath(QStringLiteral("resources/audio/bgm"));
+    return appBgmPath;
 #endif
 }
 

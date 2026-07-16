@@ -24,6 +24,7 @@ public:
     void setPlaylistPanelGeometry(int top, int height);
     void startPlaybackIfAvailable();
     void setGameMode(bool enabled);
+    void collapseForGameplay(bool animate = true);
     bool isGameMode() const;
     bool isCollapsedToHandle() const;
     int collapsedHandleWidth() const;
@@ -32,6 +33,12 @@ signals:
     void playlistVisibilityChanged(bool visible);
 
 private:
+    enum class LoopMode {
+        NoLoop,
+        SingleLoop,
+        ListLoop
+    };
+
     struct SongInfo {
         QString title;
         QString artist;
@@ -49,6 +56,8 @@ private:
     void playRow(int row);
     void playSong(int songIndex);
     void playAdjacent(int offset);
+    void handlePlaybackEnded();
+    void cycleLoopMode();
     void setPlaylistOpen(bool open);
     void setCollapsedToHandle(bool collapsed, bool animate);
     void updateCollapsedUi();
@@ -73,6 +82,7 @@ private:
     QPushButton *playPauseButton;
     QPushButton *nextButton;
     QPushButton *shuffleButton;
+    QPushButton *loopButton;
     QPushButton *playlistButton;
     QPushButton *handleButton;
     QWidget *playlistPanel;
@@ -83,8 +93,8 @@ private:
     QVector<SongInfo> songs;
     int currentSongIndex = -1;
     bool shuffleEnabled = false;
+    LoopMode loopMode = LoopMode::ListLoop;
     bool playlistOpen = false;
-    bool gameModeWasExpanded = false;
     bool userSeeking = false;
     bool gameMode = false;
     bool collapsedToHandle = false;

@@ -24,6 +24,7 @@ public:
 signals:
     void backToHomeRequested();
     void gameStarted();
+    void pauseChanged(bool paused);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -31,6 +32,7 @@ protected:
 
 private:
     void setPaused(bool paused);
+    void setDebugPaused(bool paused);
 
     GameCanvas *gameCanvas;
     GameController *gameController;
@@ -39,6 +41,7 @@ private:
     QWidget *gameOverOverlay;
     QLabel *finalScoreLabel;
     bool paused = false;
+    bool debugPaused = false;
     bool gameEnded = false;
 };
 

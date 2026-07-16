@@ -159,6 +159,7 @@ GamePage::GamePage(QWidget *parent)
             this, [this](int finalScore) {
                 gameEnded = true;
                 paused = false;
+                debugPaused = false;
                 pauseOverlay->hide();
                 QSettings settings;
                 const int previousHighScore =
@@ -192,6 +193,7 @@ GamePage::GamePage(QWidget *parent)
 void GamePage::startGame(double initialBackgroundOffset)
 {
     paused = false;
+    debugPaused = false;
     gameEnded = false;
     pauseOverlay->hide();
     gameOverOverlay->hide();
@@ -211,7 +213,7 @@ void GamePage::setExternalPaused(bool value)
 
 bool GamePage::isPaused() const
 {
-    return paused;
+    return paused || debugPaused;
 }
 
 bool GamePage::isGameEnded() const
@@ -221,13 +223,20 @@ bool GamePage::isGameEnded() const
 
 void GamePage::keyPressEvent(QKeyEvent *event)
 {
+    if (!gameEnded && !event->isAutoRepeat()
+        && event->key() == Qt::Key_F8) {
+        setDebugPaused(!debugPaused);
+        event->accept();
+        return;
+    }
+
     if (!gameEnded && event->key() == Qt::Key_Escape) {
         setPaused(!paused);
         event->accept();
         return;
     }
 
-    if (!paused && !event->isAutoRepeat()
+    if (!isPaused() && !event->isAutoRepeat()
         && (event->key() == Qt::Key_Space
             || event->key() == Qt::Key_Up)) {
         gameController->jump();
@@ -235,7 +244,7 @@ void GamePage::keyPressEvent(QKeyEvent *event)
         return;
     }
 
-    if (!paused && !event->isAutoRepeat()
+    if (!isPaused() && !event->isAutoRepeat()
         && event->key() == Qt::Key_J) {
         gameController->attack();
         event->accept();
@@ -258,6 +267,9 @@ void GamePage::resizeEvent(QResizeEvent *event)
 
 void GamePage::setPaused(bool value)
 {
+    if (paused == value)
+        return;
+
     paused = value;
     if (paused) {
         gameController->pause();
@@ -265,6 +277,22 @@ void GamePage::setPaused(bool value)
         pauseOverlay->raise();
     } else {
         pauseOverlay->hide();
+        if (!debugPaused)
+            gameController->resume();
+    }
+    emit pauseChanged(isPaused());
+}
+
+void GamePage::setDebugPaused(bool value)
+{
+    if (debugPaused == value)
+        return;
+
+    debugPaused = value;
+    if (debugPaused) {
+        gameController->pause();
+    } else if (!paused) {
         gameController->resume();
     }
+    emit pauseChanged(isPaused());
 }

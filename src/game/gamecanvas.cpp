@@ -215,22 +215,18 @@ void GameCanvas::paintEvent(QPaintEvent *)
                                QRectF(obstacle.pixmap().rect()));
         } else if (obstacle.kind() == ObstacleKind::Airborne) {
             painter.setBrush(QColor(97, 154, 214, 145));
-            painter.setPen(QPen(QColor("#1e5f99"), 2, Qt::SolidLine));
+            painter.setPen(Qt::NoPen);
             painter.drawRoundedRect(obstacle.bounds(), 12, 12);
+            painter.setPen(QColor("#1e5f99"));
             painter.setFont(QFont(QStringLiteral("Sans Serif"), 11,
                                   QFont::DemiBold));
             painter.drawText(obstacle.bounds(), Qt::AlignCenter,
                              QStringLiteral("空中障碍"));
         } else {
             painter.setBrush(QColor(98, 82, 72, 190));
-            painter.setPen(QPen(QColor("#4d4038"), 2, Qt::SolidLine));
+            painter.setPen(Qt::NoPen);
             painter.drawRoundedRect(obstacle.bounds(), 5, 5);
         }
-
-        // 调试用：显示 PNG 非透明像素的外接碰撞范围。
-        painter.setBrush(Qt::NoBrush);
-        painter.setPen(QPen(QColor(33, 27, 23, 150), 2, Qt::DashLine));
-        painter.drawRoundedRect(obstacle.collisionBounds(), 4, 4);
     }
 
     // 金币动画：金币矩形中心作为贴图锚点，碰撞仍使用 coinBounds。
@@ -244,8 +240,8 @@ void GameCanvas::paintEvent(QPaintEvent *)
             painter.drawPixmap(target, coinFrame, QRectF(coinFrame.rect()));
         } else {
             painter.setBrush(QColor(255, 202, 40, 150));
-            painter.setPen(QPen(QColor("#b77900"), 3, Qt::DashLine));
-            painter.drawRoundedRect(coin, 8, 8);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(coin);
         }
     }
 
@@ -265,8 +261,9 @@ void GameCanvas::paintEvent(QPaintEvent *)
                                QRectF(powerupFrame.rect()));
         } else {
             painter.setBrush(QColor("#e53935"));
-            painter.setPen(QPen(QColor("#8e0000"), 3, Qt::SolidLine));
-            painter.drawRect(powerup);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(powerup);
+            painter.setPen(QColor("#8e0000"));
             painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("哈"));
         }
     }
@@ -287,8 +284,9 @@ void GameCanvas::paintEvent(QPaintEvent *)
                                QRectF(magnetFrame.rect()));
         } else {
             painter.setBrush(QColor("#1e88e5"));
-            painter.setPen(QPen(QColor("#0d47a1"), 3, Qt::SolidLine));
-            painter.drawRect(powerup);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(powerup);
+            painter.setPen(QColor("#0d47a1"));
             painter.drawText(powerup, Qt::AlignCenter, QStringLiteral("磁"));
         }
     }
@@ -377,10 +375,6 @@ void GameCanvas::paintEvent(QPaintEvent *)
             QRectF(explosionFrames[index].rect()));
     }
 
-    // 调试用真实碰撞箱：当前猫咪 PNG 非透明像素的外接范围。
-    painter.setBrush(Qt::NoBrush);
-    painter.setPen(QPen(QColor(195, 79, 53, 150), 2, Qt::DashLine));
-    painter.drawRoundedRect(playerCollisionBox, 5, 5);
     painter.restore();
 
     if (screenRedOverlayAlpha > 0.0)
